@@ -1,0 +1,7 @@
+عکس‌های واقعی مشاوران را داخل همین پوشه قرار دهید و مسیر عکس را در src/data/advisors.ts تنظیم کنید.
+
+پیشنهاد نام فایل‌ها:
+- abolfazl-bahari.(png|jpg)
+- zeinab-arjmand.(png|jpg)
+- mahdi-shavor.(png|jpg)
+- hanieh-noorbakht.(png|jpg)

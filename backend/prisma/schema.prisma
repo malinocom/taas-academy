@@ -1,0 +1,320 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  advisor
+  student
+}
+
+enum OrderStatus {
+  pending
+  paid
+  processing
+  sent
+  delivered
+  canceled
+}
+
+enum WorkReportStatus {
+  submitted
+  approved
+  rejected
+}
+
+model User {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  username         String?  @unique
+  passwordHash     String
+  role             Role     @default(student)
+  refreshTokenHash String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  profile     Profile?
+  orders      Order[]
+  workReports WorkReport[]
+  attempts    Attempt[]
+
+  isPrivateStudent Boolean       @default(false)
+  privateAdvisorId String?
+  privateAdvisor   User?         @relation("AdvisorStudents", fields: [privateAdvisorId], references: [id], onDelete: SetNull)
+  privateStudents  User[]        @relation("AdvisorStudents")
+  privateRenewalDate DateTime?
+
+  privatePlans     PrivatePlan[]
+  advisorPlans     PrivatePlan[] @relation("PlanAdvisor")
+  studyProgress    StudyProgress[]
+}
+
+model Profile {
+  userId     String  @id
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  major      String?
+  grade      String?
+  phone      String?
+  nationalId String?
+  address    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model PrivatePlan {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  advisorId String?
+  advisor   User?    @relation("PlanAdvisor", fields: [advisorId], references: [id], onDelete: SetNull)
+
+  rows      PrivatePlanRow[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+model PrivatePlanRow {
+  id          Int         @id @default(autoincrement())
+  planId      Int
+  plan        PrivatePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  time        String?
+  subjectName String
+  description String?
+  testCount   Int         @default(0)
+  duration    Int?        // اضافه شد: برای ذخیره زمان مطالعه (دقیقه)
+  done        Boolean     @default(false) // اضافه شد: برای وضعیت انجام تکالیف
+
+  orderIndex  Int         @default(0)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model StudyProgress {
+  id           Int      @id @default(autoincrement())
+
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  subjectName  String
+  boxes Json @default("[]")
+
+  createdAt    DateTime @default(now()) // اضافه شد
+  updatedAt    DateTime @updatedAt      // اضافه شد
+
+  @@unique([userId, subjectName])
+}
+
+model Note {
+  id          String   @id @default(uuid())
+  title       String
+  price       Int
+  description String
+  tags        String[]
+  coverEmoji  String?
+  imageUrls   String[]
+  pdfUrl      String?
+  pdfFileName String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Order {
+  id        String      @id @default(uuid()) // اضافه شد: برای جلوگیری از خطای ID خالی
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     Json
+  total     Int
+  status    OrderStatus @default(pending)
+  customer  Json
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model WorkReport {
+  id           String           @id @default(uuid()) // اضافه شد
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String?
+  note         String?
+  imageUrls    String[]
+  createdAt    DateTime         @default(now())
+  status       WorkReportStatus @default(submitted)
+  adminComment String?
+  reviewedAt   DateTime?
+}
+
+model Question {
+  id            String @id @default(uuid())
+  prompt        String
+  options       Json
+  correctIndex  Int
+  subject       String
+  lessonCode    String
+  major         String
+  grade         String?
+  blueprintKey  String?
+  isImageOnly   Boolean @default(false)
+  difficulty    String
+  tags          String[]
+  imageUrl      String?
+  imageFileName String?
+}
+
+enum ExamMode {
+  questionBank
+  pdf
+}
+
+model Exam {
+  id              String  @id @default(uuid())
+  title           String
+  description     String
+  durationMinutes Int
+
+  mode            ExamMode @default(questionBank)
+  startAt         DateTime?
+  endAt           DateTime?
+  pdfUrl          String?
+  pdfFileName     String?
+  questionCount   Int?
+  answerKey       Json?
+  subjectRanges   Json?
+
+  questionIds     String[]
+  blueprint       Json?
+  negativeMarking Json?
+  assignedUserIds String[]
+  published       Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ExamAttemptAllowance {
+  id              String   @id @default(uuid())
+  examId          String
+  userId          String
+  allowedAttempts Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([examId, userId])
+  @@index([examId])
+  @@index([userId])
+}
+
+model Attempt {
+  id        String   @id @default(cuid())
+  examId    String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attemptNo Int      @default(1)
+  answers   Json
+  startedAt DateTime
+  endedAt   DateTime
+  percent   Int
+  taraz     Int      @default(4000)
+  correct   Int
+  wrong     Int
+  blank     Int
+  penalty   Int
+  netCorrect Float
+  total     Int
+  breakdown Json
+  warnings  Json?
+  adminMessage   String?
+  adminMessageAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@unique([examId, userId, attemptNo])
+  @@index([examId])
+  @@index([userId])
+}
+
+model ConsultationBooking {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  fullName         String
+  grade            String
+  major            String
+  goal             String
+  hadAdvisorBefore Boolean
+  phone            String
+  parentPhone      String?
+  advisorChoice    String
+  cancelReason     String?
+
+  status   String   @default("new")
+  note     String?
+}
+
+enum CompetitionStatus {
+  upcoming
+  active
+  finished
+  draft
+}
+
+model Competition {
+  id          String            @id @default(uuid())
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+
+  status      CompetitionStatus @default(upcoming)
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  participants CompetitionParticipant[]
+}
+
+model CompetitionParticipant {
+  id                String                  @id @default(uuid())
+  competitionId     String
+  studentId         String
+  totalStudyMinutes Int                     @default(0)
+  totalCorrect      Int                     @default(0)
+  totalWrong        Int                     @default(0)
+  totalBlank        Int                     @default(0)
+  rank              Int?
+
+  competition       Competition             @relation(fields: [competitionId], references: [id])
+  dailyRecords      CompetitionDailyRecord[]
+
+  @@unique([competitionId, studentId])
+  @@index([competitionId])
+  @@index([studentId])
+}
+
+model CompetitionDailyRecord {
+  id            String                  @id @default(uuid())
+  participantId String
+  date          DateTime
+  studyMinutes  Int                     @default(0)
+  correct       Int                     @default(0)
+  wrong         Int                     @default(0)
+  blank         Int                     @default(0)
+
+  participant   CompetitionParticipant  @relation(fields: [participantId], references: [id])
+
+  @@unique([participantId, date])
+  @@index([participantId])
+  @@index([date])
+}

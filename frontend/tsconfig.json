@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    // ... other options
+  }
+  // کاما حذف شد
+  ,
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "./tsconfig.node.json"
+    }
+  ]
+}
